@@ -1,17 +1,36 @@
+
+function Cell(c, r, strategy) {
+    let self = this;
+    self.alive = false;
+
+    this.stringify = function(cell) {
+        return cell.r + ';' + cell.c //+ ';' + cell.strategy.name
+    }
+
+    this.parse = function(cellString) {
+        //const [r, c, strategy] = cellString.split(';')
+        //return {r:parseInt(r, 10), c:parseInt(c, 10), strategy: strategy}
+        const [r, c] = cellString.split(';')
+        return {r:parseInt(r, 10), c:parseInt(c, 10)}
+    }
+}
+
 function Game() {
-    let self = this
+    let self = this;
     self.livingSet = new Set();
     self.numNeighbors = new Map();
 
     const neighborhood = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
 
     this.stringify = function(cell) {
-        return cell.r + ';' + cell.c
+        return cell.r + ';' + cell.c + ';' + cell.strategy
     }
     this.parse = function(cellString) {
         const [r, c] = cellString.split(';')
         return {r:parseInt(r, 10), c:parseInt(c, 10)}
     }
+
+    // FIXME: n'a plus de sens. Peut etre utilisé pour savoir si une cell est habité par une strategie.
     // check if a particular cell is alive
     this.isCellAlive = function(cell) {
         return self.livingSet.has(this.stringify(cell));
@@ -23,6 +42,7 @@ function Game() {
         self.numNeighbors = new Map();
     }
 
+    // FIXME: logic de l'étape ?
     // update game grid
     this.update = function(births, deaths) {
         let dr, dc, nr, nc, n, ncell, deleted;

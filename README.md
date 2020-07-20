@@ -5,3 +5,6 @@ An app to play with [Conway's Game of Life](https://en.wikipedia.org/wiki/Conway
 **[Try it out!](https://gereleth.github.io/game-of-life/public/index.html)**
 
 Made as a hobby project. It uses [Svelte](https://svelte.dev) and is based on project template at https://github.com/sveltejs/template.
+
+
+## Installation
