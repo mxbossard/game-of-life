@@ -1,13 +1,16 @@
 
 function Environment() {
 
-    // Process a combat between 2 strategies. If combat already done, do nothing.
-    this.fight = function(strategy1, strategy2) {
+    this.birth = function(cell) {
 
     }
 
-    // Check if a cell is adapted to it's environment
-    this.isAdapted = function(cell, neighborhood) {
+    this.kill = function(cell) {
+
+    }
+
+    // Process a combat between 2 strategies. If combat already done, do nothing.
+    this.fight = function(strategy1, strategy2) {
 
     }
 
@@ -16,8 +19,8 @@ function Environment() {
 
     }
 
-    // Check if a cell is not adapted to it's environment
-    this.isNotAdapted = function(cell, neighborhood) {
+    // Check if a cell is adapted to it's environment
+    this.isAdapted = function(cell, neighborhood) {
 
     }
 
@@ -35,34 +38,52 @@ export const COOPERATE = 'COOPERATE';
 export const DEFECT = 'DEFECT';
 const NEIGHBORHOOD = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
 
-// FIXME: Est-ce que les combats sont reversible ? si oui il ne faut jouer que "la moitié" des combats.
+// Tous les combats sont "reversibles". On ne joue que "la moitié" des combats.
 function IteratedPrisonersDilemmaEnvironment(roundCount) {
     let self = this;
     self.livings = new Map();
     self.fightsDone = new Set();
     self.scoreboard = new Map();
+    self.leaderboard = [];
+
+    this.birth = function(cell) {
+        let key = cell.stringify();
+        self.livings.set(key, cell);
+    }
+
+    this.kill = function(cell) {
+        let key = cell.stringify();
+        self.livings.delete(key);
+    }
 
     this.step = function() {
         self.fightsDone = new Set();
         self.scoreboard = new Map();
+        self.leaderboard = [];
 
-        let dr, dc, nr, nc, neighbor;
+        let dr, dc, nr, nc, ncell, neighbor;
         livings.forEach((value, key, map) => {
             for ([dr, dc] of NEIGHBORHOOD) {
-                nr = cell.r + dr;
-                nc = cell.c + dc;
+                nr = value.r + dr;
+                nc = value.c + dc;
                 ncell = this.stringify({r:nr, c:nc})
                 if (livings.has(ncell)) {
                     // neighbor is alive. Fight against it !
                     neighbor = livings.get(ncell);
                 } else {
                     // neighbor is not alive. Treat it as a dummy random.
-                    neighbor = new Cell(nc, nr, new RandomStrategy())
+                    neighbor = new Cell(nc, nr, RANDOM_STRATEGY)
                 }
 
                 self.fight(value, neighbor);
             }
         });
+
+        console.log('scoreboard: ', scoreboard);
+        self.leaderboard = self.scoreboard.entries().forEach(([key, value]) => [value, key]).sort();
+        console.log('leaderboard: ', leaderboard);
+
+        //TODO: Donner naissance et tuer des cellules.
     }
 
     // Process a combat between 2 cells. If combat already done, do nothing.
@@ -104,22 +125,29 @@ function IteratedPrisonersDilemmaEnvironment(roundCount) {
         self.fightsDone.add(cell2.stringify() + '_' + cell1.stringify());
     }
 
-    // Check if a cell is adapted to it's environment
-    this.isAdapted = function(cell) {
-        
-    }
-
     // Check if a cell is super adapted to it's environment
     this.isSuperAdapted = function(cell) {
-
+        if (self.scoreboard.has(cell)) {
+            let score = self.scoreboard.get(cell);
+            return score > 3 * self.roundCount / 2
+        } else {
+            throw new Error('Cell do not have a score !');
+        }
     }
 
-    // Check if a cell is not adapted to it's environment
-    this.isNotAdapted = function(cell, neighborhood) {
-
+    // Check if a cell is adapted to it's environment
+    this.isAdapted = function(cell) {
+        if (self.scoreboard.has(cell)) {
+            let score = self.scoreboard.get(cell);
+            return score > 4 * self.roundCount
+        } else {
+            throw new Error('Cell do not have a score !');
+        }
     }
+
 }
 
+const COOPERATIVE_STRATEGY = new CooperativeStrategy()
 function CooperativeStrategy() {
     this.name = 'CooperativeStrategy';
     this.color = 'forestgreen';
@@ -130,6 +158,7 @@ function CooperativeStrategy() {
     }
 }
 
+const DEFECTIVE_STRATEGY = new DefectiveStrategy()
 function DefectiveStrategy() {
     this.name = 'DefectiveStrategy';
     this.color = 'red';
@@ -140,6 +169,7 @@ function DefectiveStrategy() {
     }
 }
 
+const DONNANT_DONNANT_STRATEGY = new DonnantDonnantStrategy()
 function DonnantDonnantStrategy() {
     this.name = 'DonnantDonnantStrategy';
     this.color = 'lightblue';
@@ -152,6 +182,7 @@ function DonnantDonnantStrategy() {
     
 }
 
+const RANDOM_STRATEGY = new RandomStrategy()
 function RandomStrategy() {
     this.name = 'RandomStrategy';
     this.color = 'white';
@@ -164,5 +195,13 @@ function RandomStrategy() {
     
 }
 
-export const ENVIRONMENT = new IteratedPrisonersDilemmaEnvironment();
+export const ENVIRONMENT = new IteratedPrisonersDilemmaEnvironment(100);
 
+let cellA = new Cell(-10, -10, COOPERATIVE_STRATEGY);
+ENVIRONMENT.birth(cellA);
+
+let cellB = new Cell(-10, 10, DEFECTIVE_STRATEGY);
+ENVIRONMENT.birth(cellB);
+
+let cellC = new Cell(10, 10, DONNANT_DONNANT_STRATEGY);
+ENVIRONMENT.birth(cellC);

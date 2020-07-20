@@ -1,7 +1,7 @@
 
 function Cell(c, r, strategy) {
     let self = this;
-    self.alive = false;
+    self.alive = true;
 
     this.stringify = function(cell) {
         return cell.r + ';' + cell.c //+ ';' + cell.strategy.name
