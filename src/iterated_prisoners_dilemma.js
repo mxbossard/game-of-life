@@ -133,7 +133,7 @@ class IteratedPrisonersDilemmaEnvironment {
             } else {
                 // neighbor is not alive. Give birth here.
                 baby = new Cell(nc, nr, cell.strategy);
-                //this.spawn(baby);
+                this.spawn(baby);
                 return [baby];
             }
         }
@@ -155,7 +155,7 @@ class IteratedPrisonersDilemmaEnvironment {
 
         let dr, dc, nr, nc, ncell, neighbor, babies;
         this.livings.forEach((cell, key, map) => {
-            for ([dr, dc] of NEIGHBORHOOD) {
+            for ([dc, dr] of NEIGHBORHOOD) {
                 nr = cell.r + dr;
                 nc = cell.c + dc;
                 ncell = Helper.cellKey(nc, nr);
@@ -248,7 +248,7 @@ class IteratedPrisonersDilemmaEnvironment {
             }
         }
         
-        console.debug('Cell1 get', strategy1Counter, 'points ; Cell2 get', strategy2Counter, 'points.');
+        //console.debug('Cell1 get', strategy1Counter, 'points ; Cell2 get', strategy2Counter, 'points.');
         this.scoreboard.set(cell1, (this.scoreboard.get(cell1) || 0) + strategy1Counter);
         this.scoreboard.set(cell2, (this.scoreboard.get(cell2) || 0) + strategy2Counter);
 
@@ -330,11 +330,11 @@ function RandomStrategy() {
 
 export const environment = new IteratedPrisonersDilemmaEnvironment(100);
 
-let cellA = new Cell(-5, 0, COOPERATIVE_STRATEGY);
+let cellC = new Cell(-10, 5, DONNANT_DONNANT_STRATEGY);
+environment.spawn(cellC);
+
+let cellA = new Cell(0, 5, COOPERATIVE_STRATEGY);
 environment.spawn(cellA);
 
-let cellB = new Cell(0, 0, DEFECTIVE_STRATEGY);
+let cellB = new Cell(5, 5, DEFECTIVE_STRATEGY);
 environment.spawn(cellB);
-
-let cellC = new Cell(5, 0, DONNANT_DONNANT_STRATEGY);
-environment.spawn(cellC);
