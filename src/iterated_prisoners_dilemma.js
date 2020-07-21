@@ -69,6 +69,23 @@ class Cell {
     }
 }
 
+class Score {
+
+    constructor(cell) {
+        this.cell = cell;
+        this.fightCount = 0;
+        this.winCount = 0;
+        this.score = 0;
+    }
+
+    addScore(score, versusCell, versusScore) {
+        this.fightCount ++;
+        if (score) this.score += score;
+        if (score > versusScore) this.winCount ++;
+        
+    }
+}
+
 class Helper {
 
     static cellKey(c, r) {
@@ -83,7 +100,8 @@ class Helper {
     }
 
     static fightKey(cell1, cell2) {
-        let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.c, cell2.r);
+        //let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.c, cell2.r);
+        let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.strategy.name); // Do only one fight by strategy.
         return key;
     }
 }
@@ -100,8 +118,10 @@ class IteratedPrisonersDilemmaEnvironment {
         this.roundCount = roundCount;
         this.livings = new Map(); // Map of living cell : cellKey > Cell
         this.fightsDone = new Set(); // Set of fightKey
-        this.scoreboard = new Map(); // Map of score : Cell > int
+        this.scoreboard = new Map(); // Map of score : Cell > Score
         this.leaderboard = []; // Array of Cell
+        this.fightResultCacheDisabled = false;
+        this.fightResultCache = new Map(); // Map of fitht result : strat1;strat2 > [counter, counter]
     }
 
     // Reset the environment
@@ -157,6 +177,7 @@ class IteratedPrisonersDilemmaEnvironment {
         this.fightsDone = new Set();
         this.scoreboard = new Map();
         this.leaderboard = [];
+        this.fightResultCache = new Map();
 
         let dr, dc, nr, nc, ncell, neighbor, babies;
         this.livings.forEach((cell, key, map) => {
@@ -177,7 +198,6 @@ class IteratedPrisonersDilemmaEnvironment {
         });
 
         console.info('livings: ', this.livings);
-
         this.scoreboard.forEach((score, cell, map) => {
             let key = cell.key();
             if (!self.livings.has(key)) {
@@ -186,8 +206,9 @@ class IteratedPrisonersDilemmaEnvironment {
                 self.leaderboard.push([score, key]);
             }
         });
-
         console.info('scoreboard: ', this.scoreboard);
+
+        let orderedScores = new Array(this.scoreboard.values).sort().reverse();
 
         // FIXME: le leaderbord n'est pas ordonné numériquement ainsi !
         //this.leaderboard.sort().reverse();
@@ -212,71 +233,79 @@ class IteratedPrisonersDilemmaEnvironment {
         console.info('births:', births);
         console.info('deaths:', deaths);
 
-        /*
-        births.forEach(cell => {
-            deaths.forEach(d => {
-                if (cell.c == d.c && cell.r == d.r) {
-                    throw new Error('Duplicate birth and death !');
-                }
-            })
-        })
-        */
-
         return [births, deaths];
     }
 
     // Process a combat between 2 cells. If combat already done, do nothing.
     fight(cell1, cell2) {
-        if (this.fightsDone.has(Helper.fightKey(cell1, cell2))) return;
+        let fightKey = Helper.fightKey(cell1, cell2);
+        if (this.fightsDone.has(fightKey)) return;
 
-        //console.debug('FIGHT: ', cell1.key(), 'vs', cell2.key());
-
-        let strategy1 = cell1.strategy;
-        let strategy2 = cell2.strategy;
         let strategy1Counter = 0;
         let strategy2Counter = 0;
-        let strategy1Plays = [];
-        let strategy2Plays = [];
-        for (let i = 0; i < this.roundCount; i++) {
-            let play1 = strategy1.play(i, strategy1Plays, strategy2Plays, this.roundCount);
-            let play2 = strategy2.play(i, strategy2Plays, strategy1Plays, this.roundCount);
 
-            strategy1Plays.push(play1);
-            strategy2Plays.push(play2);
+        let fightingStratsKey = cell1.strategy.name + ';' + cell2.strategy.name;
+        if (!this.fightResultCache.has(fightingStratsKey) || this.fightResultCacheDisabled) {
+            // Do the fight anc cache it's results.
+            //console.debug('FIGHT: ', cell1.key(), 'vs', cell2.key());
 
-            if (play1 == COOPERATE && play2 == COOPERATE) {
-                // 3 points for everyone
-                strategy1Counter += 3;
-                strategy2Counter += 3;
-            } else if (play1 == COOPERATE && play2 == DEFECT) {
-                // 0 point for strategy1 ; 5 points for strategy 2
-                strategy2Counter += 5;
-            } else if (play1 == DEFECT && play2 == COOPERATE) {
-                // 5 points for strategy1 ; 0 point for strategy 2
-                strategy1Counter += 5;
-            } else if (play1 == DEFECT && play2 == DEFECT) {
-                // 1 point for strategy1 ; 1 point for strategy 2
-                strategy1Counter += 1;
-                strategy2Counter += 1;
-            } else {
-                throw new Error('Not supported play [', + play1 + ' ; ' + play2 + '] for strategies [' + strategy1.name + ' ; ' + strategy2.name + '] !');
+            let strategy1 = cell1.strategy;
+            let strategy2 = cell2.strategy;
+            
+            let strategy1Plays = [];
+            let strategy2Plays = [];
+            for (let i = 0; i < this.roundCount; i++) {
+                let play1 = strategy1.play(i, strategy1Plays, strategy2Plays, this.roundCount);
+                let play2 = strategy2.play(i, strategy2Plays, strategy1Plays, this.roundCount);
+
+                strategy1Plays.push(play1);
+                strategy2Plays.push(play2);
+
+                if (play1 == COOPERATE && play2 == COOPERATE) {
+                    // 3 points for everyone
+                    strategy1Counter += 3;
+                    strategy2Counter += 3;
+                } else if (play1 == COOPERATE && play2 == DEFECT) {
+                    // 0 point for strategy1 ; 5 points for strategy 2
+                    strategy2Counter += 5;
+                } else if (play1 == DEFECT && play2 == COOPERATE) {
+                    // 5 points for strategy1 ; 0 point for strategy 2
+                    strategy1Counter += 5;
+                } else if (play1 == DEFECT && play2 == DEFECT) {
+                    // 1 point for strategy1 ; 1 point for strategy 2
+                    strategy1Counter += 1;
+                    strategy2Counter += 1;
+                } else {
+                    throw new Error('Not supported play [', + play1 + ' ; ' + play2 + '] for strategies [' + strategy1.name + ' ; ' + strategy2.name + '] !');
+                }
             }
+            
+            //console.debug('Cell1 get', strategy1Counter, 'points ; Cell2 get', strategy2Counter, 'points.');
+
+            this.fightResultCache.set(fightingStratsKey, [strategy1Counter, strategy2Counter]);
+        } else {
+         [strategy1Counter, strategy2Counter] = this.fightResultCache.get(fightingStratsKey);
         }
-        
-        //console.debug('Cell1 get', strategy1Counter, 'points ; Cell2 get', strategy2Counter, 'points.');
-        this.scoreboard.set(cell1, (this.scoreboard.get(cell1) || 0) + strategy1Counter);
-        this.scoreboard.set(cell2, (this.scoreboard.get(cell2) || 0) + strategy2Counter);
+
+        let score1 = (this.scoreboard.get(cell1) || new Score(cell1))
+        score1.addScore(strategy1Counter, cell2, strategy2Counter);
+        this.scoreboard.set(cell1, score1);
+
+        let score2 = (this.scoreboard.get(cell2) || new Score(cell2))
+        score2.addScore(strategy2Counter, cell1, strategy1Counter);
+        this.scoreboard.set(cell2, score2);
 
         // Fights are symetric so add 2 fights to set of done fights.
         this.fightsDone.add(Helper.fightKey(cell1, cell2));
-        this.fightsDone.add(Helper.fightKey(cell2, cell1));
+        // FIXME: With only one fight by strategy, fight are no more symetric.
+        //this.fightsDone.add(Helper.fightKey(cell2, cell1));
     }
 
     // Check if a cell is super adapted to it's environment
     isSuperAdapted(cell) {
         if (self.scoreboard.has(cell)) {
             let score = this.scoreboard.get(cell);
-            return score > 8 * 4 * this.roundCount
+            return score.score > 8 * 4 * this.roundCount
         } else {
             throw new Error('Cell do not have a score !');
         }
@@ -286,8 +315,10 @@ class IteratedPrisonersDilemmaEnvironment {
     isAdapted(cell) {
         if (this.scoreboard.has(cell)) {
             let score = this.scoreboard.get(cell);
-            //return score > 8 * 2 * this.roundCount * 3 / 4
-            return score > 8 * 2 * this.roundCount;
+            //return score.winCount > 4 || score.score > 8 * 1 * this.roundCount;
+            //return score.score > 8 * 1 * this.roundCount;
+            //return score > 8 * 1 * this.roundCount;
+            return score.score > score.fightCount * 1 * this.roundCount * 7 / 6;
         } else {
             throw new Error('Cell do not have a score !');
         }
@@ -345,7 +376,23 @@ function RandomStrategy() {
 
 export const environment = new IteratedPrisonersDilemmaEnvironment(100);
 
-let cellC = new Cell(-10, 5, DONNANT_DONNANT_STRATEGY);
+let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, DONNANT_DONNANT_STRATEGY];
+let spacing = 10;
+
+let stratCounts = strategies.length;
+let alpha = 2 * Math.PI / stratCounts;
+
+let arenaDiameter = spacing * stratCounts / (2 * Math.PI);
+
+for (let i = 0; i < strategies.length; i++) {
+    let x = Math.ceil(Math.cos(i * alpha) * arenaDiameter);
+    let y = Math.ceil(Math.sin(i * alpha) * arenaDiameter);
+    let cell = new Cell(x, y, strategies[i]);
+    environment.spawn(cell);    
+}
+
+/*
+let cellC = new Cell(-5, 5, DONNANT_DONNANT_STRATEGY);
 environment.spawn(cellC);
 
 let cellA = new Cell(0, 5, COOPERATIVE_STRATEGY);
@@ -353,3 +400,4 @@ environment.spawn(cellA);
 
 let cellB = new Cell(5, 5, DEFECTIVE_STRATEGY);
 environment.spawn(cellB);
+*/
