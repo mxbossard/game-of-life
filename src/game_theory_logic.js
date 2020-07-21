@@ -1,18 +1,31 @@
+import { environment } from "./iterated_prisoners_dilemma";
 
-function Cell(c, r, strategy) {
+function GameTheory() {
     let self = this;
-    self.alive = true;
 
-    this.stringify = function(cell) {
-        return cell.r + ';' + cell.c //+ ';' + cell.strategy.name
+    // clear the grid
+    this.clear = function () {
+        environment.clear();
     }
 
-    this.parse = function(cellString) {
-        //const [r, c, strategy] = cellString.split(';')
-        //return {r:parseInt(r, 10), c:parseInt(c, 10), strategy: strategy}
-        const [r, c] = cellString.split(';')
-        return {r:parseInt(r, 10), c:parseInt(c, 10)}
+    //get lists of cells that are born or die after a single step
+    this.step = function() {
+        return environment.step();
     }
+
+    this.livingSet = function() {
+        return new Set(environment.livings.values());
+    }
+
+    this.isCellAlive = function(cell) {
+        throw new Error('Not supported yet !');
+    }
+
+    this.update = function(births, deaths) {
+        //throw new Error('Not supported yet !');
+    }
+
+
 }
 
 function Game() {
@@ -30,7 +43,6 @@ function Game() {
         return {r:parseInt(r, 10), c:parseInt(c, 10)}
     }
 
-    // FIXME: n'a plus de sens. Peut etre utilisé pour savoir si une cell est habité par une strategie.
     // check if a particular cell is alive
     this.isCellAlive = function(cell) {
         return self.livingSet.has(this.stringify(cell));
@@ -42,7 +54,6 @@ function Game() {
         self.numNeighbors = new Map();
     }
 
-    // FIXME: logic de l'étape ?
     // update game grid
     this.update = function(births, deaths) {
         let dr, dc, nr, nc, n, ncell, deleted;
@@ -97,4 +108,4 @@ function Game() {
     }
 }
 
-export const game = new Game();
+export const game = new GameTheory();

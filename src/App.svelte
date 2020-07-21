@@ -1,6 +1,8 @@
 <script>
     import { onMount } from 'svelte';
-    import { game } from './game_logic.js'
+    import { environment } from './iterated_prisoners_dilemma.js'
+    import { game } from './game_theory_logic.js'
+
 
     const backgroundColor = 'black'
     const foregroundColor = '#2bb'
@@ -61,9 +63,9 @@
 
     function drawCells() {
         let cell
-        for (let cellString of game.livingSet) {
-            cell = game.parse(cellString);
-            fillCell(cell, foregroundColor)
+        for (let cell of game.livingSet()) {
+            //cell = game.parse(cellString);
+            fillCell(cell, cell.strategy.color);
         }
     }
 
@@ -359,7 +361,7 @@
     }
 
     function fillCell(cell, color) {
-        context.fillStyle = color;
+        context.fillStyle = cell.strategy.color;
         const pixels = cellToTopLeftPixels(cell)
         context.fillRect(
             pixels.x, pixels.y,
@@ -379,7 +381,7 @@
             fillCell(cell, backgroundColor)
         }
         drawTime=Math.round(performance.now()-t0);
-        numCells = game.livingSet.size;
+        numCells = game.livingSet().size;
     }
 
     function step() {
@@ -393,7 +395,7 @@
     function clear() {
         game.clear()
         drawGrid();
-        numCells = game.livingSet.size;
+        numCells = game.livingSet().size;
     }
 
     function run() {
