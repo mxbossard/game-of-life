@@ -361,7 +361,7 @@
     }
 
     function fillCell(cell, color) {
-        context.fillStyle = cell.strategy.color;
+        context.fillStyle = color;
         const pixels = cellToTopLeftPixels(cell)
         context.fillRect(
             pixels.x, pixels.y,
@@ -375,7 +375,7 @@
         if ((births.length==0)&(deaths.length===0)) {stop()}
         game.update(births, deaths);
         for (let cell of births) {
-            fillCell(cell, foregroundColor)
+            fillCell(cell, cell.strategy.color)
         }
         for (let cell of deaths) {
             fillCell(cell, backgroundColor)

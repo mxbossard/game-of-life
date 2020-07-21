@@ -114,7 +114,12 @@ class IteratedPrisonersDilemmaEnvironment {
 
     spawn(cell) {
         //console.debug('Spawning new Cell:', cell.key());
+
         let key = cell.key();
+        if (this.livings.has(key)) {
+            throw new Error('Trying to spawn a cell on a living cell !');
+        }
+
         this.livings.set(key, cell);
     }
 
@@ -206,6 +211,16 @@ class IteratedPrisonersDilemmaEnvironment {
 
         console.info('births:', births);
         console.info('deaths:', deaths);
+
+        /*
+        births.forEach(cell => {
+            deaths.forEach(d => {
+                if (cell.c == d.c && cell.r == d.r) {
+                    throw new Error('Duplicate birth and death !');
+                }
+            })
+        })
+        */
 
         return [births, deaths];
     }
