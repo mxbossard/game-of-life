@@ -153,11 +153,24 @@ class IteratedPrisonersDilemmaEnvironment {
 
     // A cell give birth to some Cells, returning the new cells. Do not spwn any cell.
     giveBirth(cell) {
-        let dr, dc, nr, nc, ncellKey, baby
-        // Give birth in the first place in the neighborhood
+        let dr, dc, nr, nc, ncellKey, baby, dist;
+
+        let distancesToCenter = [];
         for ([dc, dr] of NEIGHBORHOOD) {
             nr = cell.r + dr;
             nc = cell.c + dc;
+
+            let distanceToCenter = Math.sqrt(Math.pow(nc, 2) + Math.pow(nr, 2));
+            distancesToCenter.push([distanceToCenter % 10, nc, nr]);
+        }
+
+        distancesToCenter.sort();
+        //console.log('distancesToCenter:', distancesToCenter);
+
+        // Give birth in the first place in the neighborhood
+        for ([dist, nc, nr] of distancesToCenter) {
+            //nr = cell.r + dr;
+            //nc = cell.c + dc;
             ncellKey = Helper.cellKey(nc, nr);
             if (this.livings.has(ncellKey)) {
                 // neighbor is alive. Do not give birth here.
