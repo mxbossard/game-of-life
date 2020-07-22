@@ -153,22 +153,24 @@ class IteratedPrisonersDilemmaEnvironment {
 
     // A cell give birth to some Cells, returning the new cells. Do not spwn any cell.
     giveBirth(cell) {
-        let dr, dc, nr, nc, ncellKey, baby, dist;
+        let dr, dc, nr, nc, ncellKey, baby, dist, reduced;
 
         let distancesToCenter = [];
         for ([dc, dr] of NEIGHBORHOOD) {
             nr = cell.r + dr;
             nc = cell.c + dc;
-
+            let midDistanceToCenter = Math.sqrt(Math.pow(cell.c, 2) + Math.pow(cell.r, 2));
             let distanceToCenter = Math.sqrt(Math.pow(nc, 2) + Math.pow(nr, 2));
-            distancesToCenter.push([distanceToCenter % 10, nc, nr]);
+            let reducedDistanceToCenter = 3 + distanceToCenter - midDistanceToCenter;
+            //distancesToCenter.push([reducedDistanceToCenter, distanceToCenter, nc, nr]);
+            distancesToCenter.push([reducedDistanceToCenter, distanceToCenter, nc, nr]);
         }
 
         distancesToCenter.sort();
-        //console.log('distancesToCenter:', distancesToCenter);
+        //console.debug('distancesToCenter:', distancesToCenter);
 
         // Give birth in the first place in the neighborhood
-        for ([dist, nc, nr] of distancesToCenter) {
+        for ([reduced, dist, nc, nr] of distancesToCenter) {
             //nr = cell.r + dr;
             //nc = cell.c + dc;
             ncellKey = Helper.cellKey(nc, nr);
@@ -276,7 +278,7 @@ class IteratedPrisonersDilemmaEnvironment {
             //return score.score > score.fightCount * 1 * this.roundCount * 7 / 6;
             //return score.score > score.fightCount * 1 * this.roundCount * 15 / 12;
 
-            if (score.winsCount == 0) return false;
+            if (score.fightCount <= 1 ) return true;
 
             let dc, dr, nc, nr, ncellKey;
             let level = 0;
@@ -319,7 +321,7 @@ class IteratedPrisonersDilemmaEnvironment {
                     neighbor = this.livings.get(ncell);
                 } else {
                     // neighbor is not alive. Treat it as a dummy random.
-                    neighbor = new Cell(nc, nr, RANDOM_STRATEGY)
+                    neighbor = new Cell(nc, nr, RANDOM_STRATEGY);
                 }
 
                 self.fight(cell, neighbor);
@@ -470,14 +472,24 @@ function RandomStrategy() {
         if (Math.random() * 2 > 1) return COOPERATE;
         return DEFECT;
     }
-    
 }
 
-export const environment = new IteratedPrisonersDilemmaEnvironment(100, 30);
+const VOID_STRATEGY = new VoidStrategy()
+function VoidStrategy() {
+    this.name = 'VoidStrategy';
+    this.color = 'black';
 
-let strategies = [DONNANT_DONNANT_STRATEGY, COOPERATIVE_STRATEGY,  COOPERATE_THEN_DEFECT_STRATEGY];
-//let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY];
-let spacing = 10;
+    // Return the move of the strategy
+    this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
+        throw new Error('This strategy should not play !');
+    }
+}
+
+export const environment = new IteratedPrisonersDilemmaEnvironment(100, 36);
+
+let strategies = [DEFECTIVE_STRATEGY, COOPERATIVE_STRATEGY,  DONNANT_DONNANT_STRATEGY];
+//let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY, DONNANT_DONNANT_STRATEGY];
+let spacing = 20;
 
 let stratCounts = strategies.length;
 let replicaCounts = stratCounts * (stratCounts - 1);
