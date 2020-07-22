@@ -1,43 +1,43 @@
 
-function Environment() {
+class Environment {
 
     // Reset the environment
-    this.clear = function() {
+    clear() {
 
     }
 
     // Spawn a new cell in the environment
-    this.spawn = function(cell) {
+    spawn(cell) {
 
     }
 
     // The supplied cell vill give birth to a new cell.
-    this.giveBirth = function(cell) {
+    giveBirth(cell) {
 
     }
 
     // The supplied cell will be killed.
-    this.kill = function(cell) {
+    kill(cell) {
 
     }
 
-    // Process a combat between 2 strategies. If combat already done, do nothing.
-    this.fight = function(strategy1, strategy2) {
+    // Process a combat between 2 cells. If combat already done, do nothing.
+    fight(cell1, cell2) {
 
     }
 
     // Check if a cell is super adapted to it's environment
-    this.isSuperAdapted = function(cell, neighborhood) {
+    isSuperAdapted(cell, neighborhood) {
 
     }
 
     // Check if a cell is adapted to it's environment
-    this.isAdapted = function(cell, neighborhood) {
+    isAdapted(cell, neighborhood) {
 
     }
 
     // Advance by one generation returning 2 arrays of born and dead cells.
-    this.step = function() {
+    step() {
 
     }
 
@@ -82,7 +82,14 @@ class Score {
         this.fightCount ++;
         if (score) this.score += score;
         if (score > versusScore) this.winCount ++;
-        
+    }
+
+    isGreaterThan(otherScore) {
+        if (!otherScore) return true;
+        if (this.score > otherScore.score) return true; // The highest score win
+        if (this.fightCount > otherScore.fightCount) return true; // The veteran win
+
+        return false;
     }
 }
 
@@ -114,7 +121,7 @@ const NEIGHBORHOOD = [[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1]]; //
 // Tous les combats sont "reversibles". On ne joue que "la moitié" des combats.
 class IteratedPrisonersDilemmaEnvironment {
 
-    constructor(roundCount) {
+    constructor(roundCount, boundary) {
         this.roundCount = roundCount;
         this.livings = new Map(); // Map of living cell : cellKey > Cell
         this.fightsDone = new Set(); // Set of fightKey
@@ -122,6 +129,7 @@ class IteratedPrisonersDilemmaEnvironment {
         this.leaderboard = []; // Array of Cell
         this.fightResultCacheDisabled = false;
         this.fightResultCache = new Map(); // Map of fitht result : strat1;strat2 > [counter, counter]
+        this.boundary = boundary;
     }
 
     // Reset the environment
@@ -143,7 +151,7 @@ class IteratedPrisonersDilemmaEnvironment {
         this.livings.set(key, cell);
     }
 
-    // A cell give birth to some Cells, returning the new cells.
+    // A cell give birth to some Cells, returning the new cells. Do not spwn any cell.
     giveBirth(cell) {
         let dr, dc, nr, nc, ncellKey, baby
         // Give birth in the first place in the neighborhood
@@ -157,8 +165,8 @@ class IteratedPrisonersDilemmaEnvironment {
                 continue;
             } else {
                 // neighbor is not alive. Give birth here.
+                if (this.boundary > 0 && (nc > this.boundary || nc < -this.boundary | nr > this.boundary || nr < -this.boundary)) return [];
                 baby = new Cell(nc, nr, cell.strategy);
-                this.spawn(baby);
                 return [baby];
             }
         }
@@ -167,73 +175,6 @@ class IteratedPrisonersDilemmaEnvironment {
     kill(cell) {
         let key = cell.key();
         this.livings.delete(key);
-    }
-
-    step() {
-        let self = this;
-        let givingBirths = [];
-        let births = [];
-        let deaths = [];
-        this.fightsDone = new Set();
-        this.scoreboard = new Map();
-        this.leaderboard = [];
-        this.fightResultCache = new Map();
-
-        let dr, dc, nr, nc, ncell, neighbor, babies;
-        this.livings.forEach((cell, key, map) => {
-            for ([dc, dr] of NEIGHBORHOOD) {
-                nr = cell.r + dr;
-                nc = cell.c + dc;
-                ncell = Helper.cellKey(nc, nr);
-                if (this.livings.has(ncell)) {
-                    // neighbor is alive. Fight against it !
-                    neighbor = this.livings.get(ncell);
-                } else {
-                    // neighbor is not alive. Treat it as a dummy random.
-                    neighbor = new Cell(nc, nr, RANDOM_STRATEGY)
-                }
-
-                self.fight(cell, neighbor);
-            }
-        });
-
-        console.info('livings: ', this.livings);
-        this.scoreboard.forEach((score, cell, map) => {
-            let key = cell.key();
-            if (!self.livings.has(key)) {
-                map.delete(cell);
-            } else {
-                self.leaderboard.push([score, key]);
-            }
-        });
-        console.info('scoreboard: ', this.scoreboard);
-
-        let orderedScores = new Array(this.scoreboard.values).sort().reverse();
-
-        // FIXME: le leaderbord n'est pas ordonné numériquement ainsi !
-        //this.leaderboard.sort().reverse();
-        //console.info('leaderboard: ', this.leaderboard);
-
-        this.livings.forEach((cell, key, map) => {
-            if (self.isAdapted(cell)) {
-                givingBirths.push(cell);
-            } else {
-                deaths.push(cell);
-            }
-        });
-
-        givingBirths.forEach(cell => {
-            babies = this.giveBirth(cell)
-            if (babies) {
-                babies.forEach(cell => births.push(cell));
-            }
-        });
-        deaths.forEach(cell => this.kill(cell));
-
-        console.info('births:', births);
-        console.info('deaths:', deaths);
-
-        return [births, deaths];
     }
 
     // Process a combat between 2 cells. If combat already done, do nothing.
@@ -318,10 +259,107 @@ class IteratedPrisonersDilemmaEnvironment {
             //return score.winCount > 4 || score.score > 8 * 1 * this.roundCount;
             //return score.score > 8 * 1 * this.roundCount;
             //return score > 8 * 1 * this.roundCount;
-            return score.score > score.fightCount * 1 * this.roundCount * 7 / 6;
+            //return score.score > score.fightCount * 1 * this.roundCount * 7 / 6;
+            return score.score > score.fightCount * 1 * this.roundCount * 15 / 12;
         } else {
             throw new Error('Cell do not have a score !');
         }
+    }
+
+    step() {
+        let self = this;
+        let givingBirths = [];
+        let births = [];
+        let deaths = [];
+        this.fightsDone = new Set();
+        this.scoreboard = new Map();
+        this.leaderboard = [];
+        this.fightResultCache = new Map();
+
+        let dr, dc, nr, nc, ncell, neighbor;
+        this.livings.forEach((cell, key, map) => {
+            for ([dc, dr] of NEIGHBORHOOD) {
+                nr = cell.r + dr;
+                nc = cell.c + dc;
+                ncell = Helper.cellKey(nc, nr);
+                if (this.livings.has(ncell)) {
+                    // neighbor is alive. Fight against it !
+                    neighbor = this.livings.get(ncell);
+                } else {
+                    // neighbor is not alive. Treat it as a dummy random.
+                    neighbor = new Cell(nc, nr, RANDOM_STRATEGY)
+                }
+
+                self.fight(cell, neighbor);
+            }
+        });
+
+        console.info('livings: ', this.livings);
+        this.scoreboard.forEach((score, cell, map) => {
+            let key = cell.key();
+            if (!self.livings.has(key)) {
+                map.delete(cell);
+            } else {
+                self.leaderboard.push([score, key]);
+            }
+        });
+        console.info('scoreboard: ', this.scoreboard);
+
+        //let orderedScores = new Array(this.scoreboard.values).sort().reverse();
+
+        // FIXME: le leaderbord n'est pas ordonné numériquement ainsi !
+        //this.leaderboard.sort().reverse();
+        //console.info('leaderboard: ', this.leaderboard);
+
+        let babiesByParentMap = new Map();
+        let parentsByBabyMap = new Map(); // Map of babyCellKey > [concurrentsParentCell]
+        this.livings.forEach((cell, key, map) => {
+            if (self.isAdapted(cell)) {
+                givingBirths.push(cell);
+                let babies = this.giveBirth(cell);
+                if (babies) {
+                    babiesByParentMap.set(cell, babies);
+                    babies.forEach(baby => {
+                        let babyKey = baby.key();
+                        let concurrentParrents;
+                        if (!parentsByBabyMap.has(babyKey)) {
+                            concurrentParrents = [];
+                            parentsByBabyMap.set(babyKey, concurrentParrents);
+                        } else {
+                            concurrentParrents = parentsByBabyMap.get(babyKey);
+                        }
+                        concurrentParrents.push(cell);
+                    });
+                }
+            } else {
+                deaths.push(cell);
+            }
+        });
+
+        parentsByBabyMap.forEach((concurrentParrents, babyKey, map) => {
+            // The parent with higher score win the baby cell !
+            let highestScore;
+            let winningCell;
+            concurrentParrents.forEach(cell => {
+                let score = this.scoreboard.get(cell);
+                if (score.isGreaterThan(highestScore)) {
+                    highestScore = score;
+                    winningCell = cell;
+                }
+            });
+            let babies = babiesByParentMap.get(winningCell);
+            babies.forEach(baby => {
+                this.spawn(baby);
+                births.push(baby);
+            });
+        });
+
+        deaths.forEach(cell => this.kill(cell));
+
+        console.info('births:', births);
+        console.info('deaths:', deaths);
+
+        return [births, deaths];
     }
 
 }
@@ -361,6 +399,33 @@ function DonnantDonnantStrategy() {
     
 }
 
+const DOUBLE_DONNANT_STRATEGY = new DoubleDonnantStrategy()
+function DoubleDonnantStrategy() {
+    this.name = 'DoubleDonnantStrategy';
+    this.color = 'pink';
+
+    // Return the move of the strategy
+    this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
+        if (roundNumber < 2) return COOPERATE;
+        if (otherPlays[roundNumber - 1] == DEFECT && otherPlays[roundNumber - 2] == DEFECT) return DEFECT;
+        return COOPERATE;
+    }
+    
+}
+
+const COOPERATE_THEN_DEFECT_STRATEGY = new CooperateThenDefectStrategy()
+function CooperateThenDefectStrategy() {
+    this.name = 'CooperateThenDefectStrategy';
+    this.color = 'yellow';
+
+    // Return the move of the strategy
+    this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
+        if (roundNumber % 2 == 0) return COOPERATE;
+        return COOPERATE;
+    }
+    
+}
+
 const RANDOM_STRATEGY = new RandomStrategy()
 function RandomStrategy() {
     this.name = 'RandomStrategy';
@@ -374,21 +439,24 @@ function RandomStrategy() {
     
 }
 
-export const environment = new IteratedPrisonersDilemmaEnvironment(100);
+export const environment = new IteratedPrisonersDilemmaEnvironment(100, 30);
 
-let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, DONNANT_DONNANT_STRATEGY];
-let spacing = 10;
+let strategies = [DONNANT_DONNANT_STRATEGY, COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, DOUBLE_DONNANT_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY];
+let spacing = 8;
 
 let stratCounts = strategies.length;
-let alpha = 2 * Math.PI / stratCounts;
+let replicaCounts = stratCounts * (stratCounts - 1);
+let alpha = 2 * Math.PI / replicaCounts;
 
-let arenaDiameter = spacing * stratCounts / (2 * Math.PI);
+let arenaDiameter = spacing * replicaCounts / (2 * Math.PI);
 
-for (let i = 0; i < strategies.length; i++) {
-    let x = Math.ceil(Math.cos(i * alpha) * arenaDiameter);
-    let y = Math.ceil(Math.sin(i * alpha) * arenaDiameter);
-    let cell = new Cell(x, y, strategies[i]);
-    environment.spawn(cell);    
+for (let i = 0; i < stratCounts; i++) {
+    for (let j = 0; j < stratCounts - 1; j++) {
+        let x = Math.ceil(Math.cos((i + j * stratCounts) * alpha) * arenaDiameter);
+        let y = Math.ceil(Math.sin((i + j * stratCounts) * alpha) * arenaDiameter);
+        let cell = new Cell(x, y, strategies[((j+1) * i) % strategies.length]);
+        environment.spawn(cell);
+    }
 }
 
 /*
