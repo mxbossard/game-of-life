@@ -27,12 +27,12 @@ class Environment {
     }
 
     // Check if a cell is super adapted to it's environment
-    isSuperAdapted(cell, neighborhood) {
+    isSuperAdapted(cell) {
 
     }
 
     // Check if a cell is adapted to it's environment
-    isAdapted(cell, neighborhood) {
+    isAdapted(cell) {
 
     }
 
@@ -125,7 +125,7 @@ class IteratedPrisonersDilemmaEnvironment {
         this.roundCount = roundCount;
         this.livings = new Map(); // Map of living cell : cellKey > Cell
         this.fightsDone = new Set(); // Set of fightKey
-        this.scoreboard = new Map(); // Map of score : Cell > Score
+        this.scoreboard = new Map(); // Map of score : cellKey > Score
         this.leaderboard = []; // Array of Cell
         this.fightResultCacheDisabled = false;
         this.fightResultCache = new Map(); // Map of fitht result : strat1;strat2 > [counter, counter]
@@ -241,13 +241,13 @@ class IteratedPrisonersDilemmaEnvironment {
          [strategy1Counter, strategy2Counter] = this.fightResultCache.get(fightingStratsKey);
         }
 
-        let score1 = (this.scoreboard.get(cell1) || new Score(cell1))
+        let score1 = (this.scoreboard.get(cell1.key()) || new Score(cell1))
         score1.addScore(strategy1Counter, cell2, strategy2Counter);
-        this.scoreboard.set(cell1, score1);
+        this.scoreboard.set(cell1.key(), score1);
 
-        let score2 = (this.scoreboard.get(cell2) || new Score(cell2))
+        let score2 = (this.scoreboard.get(cell2.key()) || new Score(cell2))
         score2.addScore(strategy2Counter, cell1, strategy1Counter);
-        this.scoreboard.set(cell2, score2);
+        this.scoreboard.set(cell2.key(), score2);
 
         // Fights are symetric so add 2 fights to set of done fights.
         this.fightsDone.add(Helper.fightKey(cell1, cell2));
@@ -257,8 +257,8 @@ class IteratedPrisonersDilemmaEnvironment {
 
     // Check if a cell is super adapted to it's environment
     isSuperAdapted(cell) {
-        if (self.scoreboard.has(cell)) {
-            let score = this.scoreboard.get(cell);
+        if (self.scoreboard.has(cell.key())) {
+            let score = this.scoreboard.get(cell.key());
             return score.score > 8 * 4 * this.roundCount
         } else {
             throw new Error('Cell do not have a score !');
@@ -267,13 +267,32 @@ class IteratedPrisonersDilemmaEnvironment {
 
     // Check if a cell is adapted to it's environment
     isAdapted(cell) {
-        if (this.scoreboard.has(cell)) {
-            let score = this.scoreboard.get(cell);
+        if (this.scoreboard.has(cell.key())) {
+            let score = this.scoreboard.get(cell.key());
+            
             //return score.winCount > 4 || score.score > 8 * 1 * this.roundCount;
             //return score.score > 8 * 1 * this.roundCount;
             //return score > 8 * 1 * this.roundCount;
             //return score.score > score.fightCount * 1 * this.roundCount * 7 / 6;
-            return score.score > score.fightCount * 1 * this.roundCount * 15 / 12;
+            //return score.score > score.fightCount * 1 * this.roundCount * 15 / 12;
+
+            if (score.winsCount == 0) return false;
+
+            let dc, dr, nc, nr, ncellKey;
+            let level = 0;
+            for ([dc, dr] of NEIGHBORHOOD) {
+                nr = cell.r + dr;
+                nc = cell.c + dc;
+                ncellKey = Helper.cellKey(nc, nr);
+                let ncellScore = this.scoreboard.get(ncellKey);
+                //console.debug('ncellScore:', ncellScore);
+                if (ncellScore && score.isGreaterThan(ncellScore)) {
+                    level++;
+                }
+            }
+
+            //console.debug('cell:', cell.key(), 'fights:', score.fightCount, 'rank:', rank);
+            return level > score.fightCount - 2;
         } else {
             throw new Error('Cell do not have a score !');
         }
@@ -307,8 +326,9 @@ class IteratedPrisonersDilemmaEnvironment {
             }
         });
 
+        /*
         console.info('livings: ', this.livings);
-        this.scoreboard.forEach((score, cell, map) => {
+        this.scoreboard.forEach((score, cellKey, map) => {
             let key = cell.key();
             if (!self.livings.has(key)) {
                 map.delete(cell);
@@ -317,6 +337,7 @@ class IteratedPrisonersDilemmaEnvironment {
             }
         });
         console.info('scoreboard: ', this.scoreboard);
+        */
 
         //let orderedScores = new Array(this.scoreboard.values).sort().reverse();
 
@@ -354,7 +375,7 @@ class IteratedPrisonersDilemmaEnvironment {
             let highestScore;
             let winningCell;
             concurrentParrents.forEach(cell => {
-                let score = this.scoreboard.get(cell);
+                let score = this.scoreboard.get(cell.key());
                 if (score.isGreaterThan(highestScore)) {
                     highestScore = score;
                     winningCell = cell;
@@ -454,8 +475,9 @@ function RandomStrategy() {
 
 export const environment = new IteratedPrisonersDilemmaEnvironment(100, 30);
 
-let strategies = [DONNANT_DONNANT_STRATEGY, COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, DOUBLE_DONNANT_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY];
-let spacing = 8;
+let strategies = [DONNANT_DONNANT_STRATEGY, COOPERATIVE_STRATEGY,  COOPERATE_THEN_DEFECT_STRATEGY];
+//let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY];
+let spacing = 10;
 
 let stratCounts = strategies.length;
 let replicaCounts = stratCounts * (stratCounts - 1);
