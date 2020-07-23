@@ -69,7 +69,7 @@ class Cell {
     }
 }
 
-class Score {
+class IpdScore {
 
     constructor(cell) {
         this.cell = cell;
@@ -124,6 +124,7 @@ class IteratedPrisonersDilemmaEnvironment {
     constructor(roundCount, boundary) {
         this.roundCount = roundCount;
         this.livings = new Map(); // Map of living cell : cellKey > Cell
+        this.neigborhoodsMap = new Map(); // Map of neighbor cells : cellKey > [[neighborCellsLvl0], [neighborCellsLvl1], ...]
         this.fightsDone = new Set(); // Set of fightKey
         this.scoreboard = new Map(); // Map of score : cellKey > Score
         this.leaderboard = []; // Array of Cell
@@ -141,7 +142,7 @@ class IteratedPrisonersDilemmaEnvironment {
     }
 
     spawn(cell) {
-        //console.debug('Spawning new Cell:', cell.key());
+        console.debug('Spawning new Cell:', cell.key());
 
         let key = cell.key();
         if (this.livings.has(key)) {
@@ -151,40 +152,62 @@ class IteratedPrisonersDilemmaEnvironment {
         this.livings.set(key, cell);
     }
 
-    // A cell give birth to some Cells, returning the new cells. Do not spwn any cell.
-    giveBirth(cell) {
-        let dr, dc, nr, nc, ncellKey, baby, dist, reduced;
+    // Return the neighborhoods keys of a cell : an array of levels neighbors discribed by their cellKey.
+    neigborhoodsKeys(cell) {
+        let cellKey = cell.key();
+        if (this.neigborhoodsMap.has(cellKey)) {
+            return this.neigborhoodsMap.get(cellKey);
+        }
 
+        let neighborhood = [];
         let distancesToCenter = [];
-        for ([dc, dr] of NEIGHBORHOOD) {
-            nr = cell.r + dr;
-            nc = cell.c + dc;
+        for (let [dc, dr] of NEIGHBORHOOD) {
+            let nr = cell.r + dr;
+            let nc = cell.c + dc;
             let midDistanceToCenter = Math.sqrt(Math.pow(cell.c, 2) + Math.pow(cell.r, 2));
             let distanceToCenter = Math.sqrt(Math.pow(nc, 2) + Math.pow(nr, 2));
             let reducedDistanceToCenter = 3 + distanceToCenter - midDistanceToCenter;
             //distancesToCenter.push([reducedDistanceToCenter, distanceToCenter, nc, nr]);
             distancesToCenter.push([reducedDistanceToCenter, distanceToCenter, nc, nr]);
         }
-
         distancesToCenter.sort();
-        //console.debug('distancesToCenter:', distancesToCenter);
 
-        // Give birth in the first place in the neighborhood
-        for ([reduced, dist, nc, nr] of distancesToCenter) {
-            //nr = cell.r + dr;
-            //nc = cell.c + dc;
-            ncellKey = Helper.cellKey(nc, nr);
-            if (this.livings.has(ncellKey)) {
-                // neighbor is alive. Do not give birth here.
-                //console.debug('someone is living here !');
-                continue;
+        for (let [reduced, dist, nc, nr] of distancesToCenter) {
+            if (this.boundary > 0 && (nc > this.boundary || nc < -this.boundary | nr > this.boundary || nr < -this.boundary)) {
+                // neighboor outside of boundaries.
             } else {
-                // neighbor is not alive. Give birth here.
-                if (this.boundary > 0 && (nc > this.boundary || nc < -this.boundary | nr > this.boundary || nr < -this.boundary)) return [];
-                baby = new Cell(nc, nr, cell.strategy);
-                return [baby];
+                let ncellKey = Helper.cellKey(nc, nr);
+                neighborhood.push(ncellKey);
             }
         }
+
+        let neighborhoods = [neighborhood];
+        this.neigborhoodsMap.set(cellKey, neighborhoods);
+        //console.debug('neighborhoods:', neighborhoods);
+        return neighborhoods;
+    }
+
+    // A cell give birth to some Cells, returning the new cells. Do not spwn any cell.
+    giveBirth(cell) {
+        let babies = [];
+        let [neighborhood] = this.neigborhoodsKeys(cell);
+        for (let neighborKey of neighborhood) {
+            if (this.livings.has(neighborKey)) {
+                // neighbor is alive. Do not give birth here.
+                //console.debug('someone is living here !');
+            } else {
+                // neighbor is not alive. Give birth here.
+                let nCell = Helper.parseCell(neighborKey);
+                //console.debug('neighborKey:', neighborKey, 'nCell:', nCell);
+                let baby = new Cell(nCell.c, nCell.r, cell.strategy);
+                //console.debug('A new baby:', baby);
+                babies.push(baby);
+                break;
+            }
+        }
+
+        //console.debug('Giving birth to cell:', cell, 'with babies:', babies);
+        return babies;
     }
 
     kill(cell) {
@@ -243,11 +266,11 @@ class IteratedPrisonersDilemmaEnvironment {
          [strategy1Counter, strategy2Counter] = this.fightResultCache.get(fightingStratsKey);
         }
 
-        let score1 = (this.scoreboard.get(cell1.key()) || new Score(cell1))
+        let score1 = (this.scoreboard.get(cell1.key()) || new IpdScore(cell1))
         score1.addScore(strategy1Counter, cell2, strategy2Counter);
         this.scoreboard.set(cell1.key(), score1);
 
-        let score2 = (this.scoreboard.get(cell2.key()) || new Score(cell2))
+        let score2 = (this.scoreboard.get(cell2.key()) || new IpdScore(cell2))
         score2.addScore(strategy2Counter, cell1, strategy1Counter);
         this.scoreboard.set(cell2.key(), score2);
 
@@ -257,14 +280,12 @@ class IteratedPrisonersDilemmaEnvironment {
         //this.fightsDone.add(Helper.fightKey(cell2, cell1));
     }
 
-    // Check if a cell is super adapted to it's environment
-    isSuperAdapted(cell) {
-        if (self.scoreboard.has(cell.key())) {
-            let score = this.scoreboard.get(cell.key());
-            return score.score > 8 * 4 * this.roundCount
-        } else {
-            throw new Error('Cell do not have a score !');
-        }
+    isDying(cell) {
+
+    }
+
+    isGivingBirth(cell) {
+
     }
 
     // Check if a cell is adapted to it's environment
