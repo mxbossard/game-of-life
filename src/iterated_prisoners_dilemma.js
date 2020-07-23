@@ -487,25 +487,50 @@ function VoidStrategy() {
 
 export const environment = new IteratedPrisonersDilemmaEnvironment(100, 36);
 
-let strategies = [DEFECTIVE_STRATEGY, COOPERATIVE_STRATEGY,  DONNANT_DONNANT_STRATEGY];
-//let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY, DONNANT_DONNANT_STRATEGY];
+//let strategies = [DEFECTIVE_STRATEGY, COOPERATIVE_STRATEGY,  DONNANT_DONNANT_STRATEGY];
+let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY, DONNANT_DONNANT_STRATEGY];
 let spacing = 20;
+let baseDiameter = 2;
 
 let stratCounts = strategies.length;
-let replicaCounts = stratCounts * (stratCounts - 1);
+let replicaCounts = stratCounts// * (stratCounts - 1);
 let alpha = 2 * Math.PI / replicaCounts;
 
 let arenaDiameter = spacing * replicaCounts / (2 * Math.PI);
 
+/*
 for (let i = 0; i < stratCounts; i++) {
     for (let j = 0; j < stratCounts - 1; j++) {
-        let x = Math.ceil(Math.cos((i + j * stratCounts) * alpha) * arenaDiameter);
-        let y = Math.ceil(Math.sin((i + j * stratCounts) * alpha) * arenaDiameter);
-        let cell = new Cell(x, y, strategies[((j+1) * i) % strategies.length]);
-        environment.spawn(cell);
+        let x = Math.ceil(Math.cos((i + j * (stratCounts)) * alpha) * arenaDiameter);
+        let y = Math.ceil(Math.sin((i + j * (stratCounts)) * alpha) * arenaDiameter);
+        
+        for (let dx = Math.floor(-baseDiameter/2) ; dx <= baseDiameter/2; dx ++) {
+            for (let dy = Math.floor(-baseDiameter/2) ; dy <= baseDiameter/2; dy ++) {
+                let dist = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
+                if(dist <= baseDiameter/2) {
+                    let cell = new Cell(x + dx, y + dy, strategies[(i + j) % strategies.length]);
+                    environment.spawn(cell);
+                }
+            }
+        }
     }
 }
+*/
 
+for (let k = 0; k < replicaCounts; k++) {
+    let x = Math.ceil(Math.cos(k * alpha) * arenaDiameter);
+    let y = Math.ceil(Math.sin(k * alpha) * arenaDiameter);
+    
+    for (let dx = Math.floor(-baseDiameter/2) ; dx <= baseDiameter/2; dx ++) {
+        for (let dy = Math.floor(-baseDiameter/2) ; dy <= baseDiameter/2; dy ++) {
+            let dist = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
+            if(dist <= baseDiameter/2) {
+                let cell = new Cell(x + dx, y + dy, strategies[k % strategies.length]);
+                environment.spawn(cell);
+            }
+        }
+    }
+}
 /*
 let cellC = new Cell(-5, 5, DONNANT_DONNANT_STRATEGY);
 environment.spawn(cellC);
