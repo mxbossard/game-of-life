@@ -74,6 +74,7 @@ class IpdScore {
     constructor(cell) {
         this.cell = cell;
         this.fightCount = 0;
+        this.winByStrategyCount = new Map(); // Map strategyName > int
         this.winCount = 0;
         this.score = 0;
     }
@@ -82,6 +83,9 @@ class IpdScore {
         this.fightCount ++;
         if (score) this.score += score;
         if (score > versusScore) this.winCount ++;
+
+        let byStratCounter = (this.winByStrategyCount.get(versusCell.strategy) || 0);
+        this.winByStrategyCount.set(versusCell.strategy, byStratCounter ++);
     }
 
     isGreaterThan(otherScore) {
@@ -107,8 +111,8 @@ class Helper {
     }
 
     static fightKey(cell1, cell2) {
-        //let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.c, cell2.r);
-        let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.strategy.name); // Do only one fight by strategy.
+        let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.c, cell2.r);
+        //let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.strategy.name); // Do only one fight by strategy.
         return key;
     }
 }
@@ -142,7 +146,7 @@ class IteratedPrisonersDilemmaEnvironment {
     }
 
     spawn(cell) {
-        console.debug('Spawning new Cell:', cell.key());
+        //console.debug('Spawning new Cell:', cell.key());
 
         let key = cell.key();
         if (this.livings.has(key)) {
@@ -277,19 +281,79 @@ class IteratedPrisonersDilemmaEnvironment {
         // Fights are symetric so add 2 fights to set of done fights.
         this.fightsDone.add(Helper.fightKey(cell1, cell2));
         // FIXME: With only one fight by strategy, fight are no more symetric.
-        //this.fightsDone.add(Helper.fightKey(cell2, cell1));
+        this.fightsDone.add(Helper.fightKey(cell2, cell1));
     }
 
     isDying(cell) {
+        let score = this.scoreboard.get(cell.key());
+        if (!score) return true;
+        let [neighborhood] = this.neigborhoodsKeys(cell);
+        let sameStratCount = 0;
+        let localTotalScore = score.score;
+        let neighborByStratCountMap = new Map();
+        for (let i = 0; i < neighborhood.length; i++) {
+            let neighborKey = neighborhood[i];
+            if (this.livings.has(neighborKey)) {
+                let neighbor = this.livings.get(neighborKey);
+                if (cell.strategy.name === neighbor.strategy.name) {
+                    sameStratCount ++;
+                }
 
+                let count = neighborByStratCountMap.get(neighbor.strategy.name) || 0;
+                neighborByStratCountMap.set(neighbor.strategy.name, count + 1);
+            }
+
+            let nScore = this.scoreboard.get(neighborKey);
+            if (nScore) localTotalScore += nScore.score;
+        }
+
+        //console.debug('sameStratCount: ', sameStratCount);
+        if (sameStratCount === 0) return true; // Die if alone.
+
+        let neighborByStratCounts = Array.from(neighborByStratCountMap.values());
+        //console.debug('neighborByStratCounts:', neighborByStratCounts);
+        for (let i = 0; i < neighborByStratCounts.length; i++) {
+            if (sameStratCount < neighborByStratCounts[i]) {
+                // if more foes than firends.
+                return score.score < localTotalScore/(neighborhood.length + 1); 
+            }
+        }
+
+        //console.debug('score: ', score.score, '/', localTotalScore);
+        return score.score < localTotalScore/(neighborhood.length + 1) * 9/10; // Die if score < 2/3 of mean score.
     }
 
     isGivingBirth(cell) {
+        let score = this.scoreboard.get(cell.key());
+        if (!score) return false;
+        let [neighborhood] = this.neigborhoodsKeys(cell);
+        let sameStratCount = 0;
+        let localTotalScore = score.score;
+        for (let i = 0; i < neighborhood.length; i++) {
+            let neighborKey = neighborhood[i];
+            if (this.livings.has(neighborKey)) {
+                let neighbor = this.livings.get(neighborKey);
+                if (cell.strategy === neighbor.strategy) {
+                    sameStratCount ++;
+                }
+            }
 
+            let nScore = this.scoreboard.get(neighborKey);
+            if (nScore) localTotalScore += nScore.score;
+        }
+        return sameStratCount > 1 && score.score >= localTotalScore/(neighborhood.length + 1); // Give birth if good score and there is 2 cells
     }
 
     // Check if a cell is adapted to it's environment
     isAdapted(cell) {
+        let score = this.scoreboard.get(cell.key());
+        if (!score) return false;
+        let [neighborhood] = this.neigborhoodsKeys(cell);
+        for (let neighborKey of neighborhood) {
+            let nScore = this.scoreboard.get(neighborKey);
+        }
+
+
         if (this.scoreboard.has(cell.key())) {
             let score = this.scoreboard.get(cell.key());
             
@@ -371,7 +435,7 @@ class IteratedPrisonersDilemmaEnvironment {
         let babiesByParentMap = new Map();
         let parentsByBabyMap = new Map(); // Map of babyCellKey > [concurrentsParentCell]
         this.livings.forEach((cell, key, map) => {
-            if (self.isAdapted(cell)) {
+            if (self.isGivingBirth(cell)) {
                 givingBirths.push(cell);
                 let babies = this.giveBirth(cell);
                 if (babies) {
@@ -388,7 +452,9 @@ class IteratedPrisonersDilemmaEnvironment {
                         concurrentParrents.push(cell);
                     });
                 }
-            } else {
+            }
+            
+            if (self.isDying(cell)) {
                 deaths.push(cell);
             }
         });
@@ -509,12 +575,12 @@ function VoidStrategy() {
 export const environment = new IteratedPrisonersDilemmaEnvironment(100, 36);
 
 //let strategies = [DEFECTIVE_STRATEGY, COOPERATIVE_STRATEGY,  DONNANT_DONNANT_STRATEGY];
-let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY, DONNANT_DONNANT_STRATEGY];
-let spacing = 20;
+let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY, DONNANT_DONNANT_STRATEGY, DOUBLE_DONNANT_STRATEGY];
+let spacing = 10;
 let baseDiameter = 2;
 
 let stratCounts = strategies.length;
-let replicaCounts = stratCounts// * (stratCounts - 1);
+let replicaCounts = stratCounts * (stratCounts - 1);
 let alpha = 2 * Math.PI / replicaCounts;
 
 let arenaDiameter = spacing * replicaCounts / (2 * Math.PI);
