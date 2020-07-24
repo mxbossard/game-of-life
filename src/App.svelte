@@ -400,7 +400,7 @@
 
     function run() {
         if (!running) {
-            timerId = setInterval(() => step(), 1000/speed);
+            timerId = setInterval(() => step(), 10000/speed);
             running = true;
         }
     }

@@ -115,6 +115,56 @@ class Helper {
         //let key = Helper.cellKey(cell1.c, cell1.r) + '_' + Helper.cellKey(cell2.strategy.name); // Do only one fight by strategy.
         return key;
     }
+
+    static initArena() {
+        let spacing = 10;
+        let baseDiameter = 2;
+
+        let stratCounts = strategies.length;
+        let replicaCounts = stratCounts * 2// * (stratCounts);
+        let alpha = 2 * Math.PI / replicaCounts;
+
+        let arenaDiameter = spacing * replicaCounts / (2 * Math.PI);
+
+        /*
+        for (let i = 0; i < stratCounts; i++) {
+            for (let j = 0; j < stratCounts - 1; j++) {
+                let x = Math.ceil(Math.cos((i + j * (stratCounts)) * alpha) * arenaDiameter);
+                let y = Math.ceil(Math.sin((i + j * (stratCounts)) * alpha) * arenaDiameter);
+                
+                for (let dx = Math.floor(-baseDiameter/2) ; dx <= baseDiameter/2; dx ++) {
+                    for (let dy = Math.floor(-baseDiameter/2) ; dy <= baseDiameter/2; dy ++) {
+                        let dist = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
+                        if(dist <= baseDiameter/2) {
+                            let cell = new Cell(x + dx, y + dy, strategies[(i + j) % strategies.length]);
+                            environment.spawn(cell);
+                        }
+                    }
+                }
+            }
+        }
+        */
+
+        for (let k = 0; k < replicaCounts; k++) {
+            let x = Math.ceil(Math.cos(k * alpha) * arenaDiameter);
+            let y = Math.ceil(Math.sin(k * alpha) * arenaDiameter);
+
+            let indice = Math.floor(k / strategies.length);
+            let position = (indice+1) * strategies.length - (indice) * (Math.round((strategies.length) * 1 / 2)) + (k%strategies.length) * Math.pow(-1, indice) - Math.floor(indice*3/2);
+            console.debug('k:', k, 'indice:', indice, 'position:', position);
+
+            for (let dx = Math.floor(-baseDiameter/2) ; dx <= baseDiameter/2; dx ++) {
+                for (let dy = Math.floor(-baseDiameter/2) ; dy <= baseDiameter/2; dy ++) {
+                    let dist = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
+                    if(dist <= baseDiameter/2) {
+                        
+                        let cell = new Cell(x + dx, y + dy, strategies[position % strategies.length]);
+                        environment.spawn(cell);
+                    }
+                }
+            }
+        }
+    }
 }
 
 export const COOPERATE = 'COOPERATE';
@@ -143,6 +193,8 @@ class IteratedPrisonersDilemmaEnvironment {
         this.fightsDone = new Set();
         this.scoreboard = new Map();
         this.leaderboard = [];
+
+        Helper.initArena();
     }
 
     spawn(cell) {
@@ -311,11 +363,14 @@ class IteratedPrisonersDilemmaEnvironment {
         if (sameStratCount === 0) return true; // Die if alone.
 
         let neighborByStratCounts = Array.from(neighborByStratCountMap.values());
+
+        
         //console.debug('neighborByStratCounts:', neighborByStratCounts);
         for (let i = 0; i < neighborByStratCounts.length; i++) {
             if (sameStratCount < neighborByStratCounts[i]) {
                 // if more foes than firends.
-                return score.score < localTotalScore/(neighborhood.length + 1); 
+
+                return score.score < localTotalScore/(neighborhood.length + 1); // Die if score < mean.
             }
         }
 
@@ -341,7 +396,7 @@ class IteratedPrisonersDilemmaEnvironment {
             let nScore = this.scoreboard.get(neighborKey);
             if (nScore) localTotalScore += nScore.score;
         }
-        return sameStratCount > 1 && score.score >= localTotalScore/(neighborhood.length + 1); // Give birth if good score and there is 2 cells
+        return sameStratCount > 2 && score.score >= localTotalScore/(neighborhood.length + 1); // Give birth if good score and there is 2 cells
     }
 
     // Check if a cell is adapted to it's environment
@@ -435,6 +490,9 @@ class IteratedPrisonersDilemmaEnvironment {
         let babiesByParentMap = new Map();
         let parentsByBabyMap = new Map(); // Map of babyCellKey > [concurrentsParentCell]
         this.livings.forEach((cell, key, map) => {
+            if (self.isDying(cell)) {
+                deaths.push(cell);
+            } else
             if (self.isGivingBirth(cell)) {
                 givingBirths.push(cell);
                 let babies = this.giveBirth(cell);
@@ -454,9 +512,7 @@ class IteratedPrisonersDilemmaEnvironment {
                 }
             }
             
-            if (self.isDying(cell)) {
-                deaths.push(cell);
-            }
+            
         });
 
         parentsByBabyMap.forEach((concurrentParrents, babyKey, map) => {
@@ -487,6 +543,8 @@ class IteratedPrisonersDilemmaEnvironment {
 
 }
 
+export const environment = new IteratedPrisonersDilemmaEnvironment(100, 24);
+
 const COOPERATIVE_STRATEGY = new CooperativeStrategy()
 function CooperativeStrategy() {
     this.name = 'CooperativeStrategy';
@@ -512,7 +570,7 @@ function DefectiveStrategy() {
 const DONNANT_DONNANT_STRATEGY = new DonnantDonnantStrategy()
 function DonnantDonnantStrategy() {
     this.name = 'DonnantDonnantStrategy';
-    this.color = 'lightblue';
+    this.color = 'pink';
 
     // Return the move of the strategy
     this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
@@ -522,10 +580,23 @@ function DonnantDonnantStrategy() {
     
 }
 
+const BAD_DONNANT_STRATEGY = new BadDonnantStrategy()
+function BadDonnantStrategy() {
+    this.name = 'BadDonnantStrategy';
+    this.color = 'purple';
+
+    // Return the move of the strategy
+    this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
+        if (roundNumber == 0) return DEFECT;
+        return otherPlays[roundNumber - 1];
+    }
+    
+}
+
 const DOUBLE_DONNANT_STRATEGY = new DoubleDonnantStrategy()
 function DoubleDonnantStrategy() {
     this.name = 'DoubleDonnantStrategy';
-    this.color = 'pink';
+    this.color = 'grey';
 
     // Return the move of the strategy
     this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
@@ -536,9 +607,9 @@ function DoubleDonnantStrategy() {
     
 }
 
-const COOPERATE_THEN_DEFECT_STRATEGY = new CooperateThenDefectStrategy()
-function CooperateThenDefectStrategy() {
-    this.name = 'CooperateThenDefectStrategy';
+const PER_CD_STRATEGY = new PerCDStrategy()
+function PerCDStrategy() {
+    this.name = 'PerCDStrategy';
     this.color = 'yellow';
 
     // Return the move of the strategy
@@ -549,15 +620,50 @@ function CooperateThenDefectStrategy() {
     
 }
 
-const RANDOM_STRATEGY = new RandomStrategy()
-function RandomStrategy() {
-    this.name = 'RandomStrategy';
-    this.color = 'white';
+const PER_CCD_STRATEGY = new PerCCDStrategy()
+function PerCCDStrategy() {
+    this.name = 'PerCCDStrategy';
+    this.color = 'lightgreen';
 
     // Return the move of the strategy
     this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
-        if (Math.random() * 2 > 1) return COOPERATE;
+        if (roundNumber % 3 < 2) return COOPERATE;
         return DEFECT;
+    }
+    
+}
+
+const PER_DDC_STRATEGY = new PerDDCStrategy()
+function PerDDCStrategy() {
+    this.name = 'PerDDCStrategy';
+    this.color = 'orange';
+
+    // Return the move of the strategy
+    this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
+        if (roundNumber % 3 < 2) return DEFECT;
+        return COOPERATE;
+    }
+    
+}
+
+const RANDOM_STRATEGY = new RandomStrategy()
+function RandomStrategy() {
+    let self = this;
+    this.name = 'RandomStrategy';
+    this.color = 'white';
+
+    this.plays = [];
+    for(let i = 0; i < environment.roundCount; i++) {
+        if (Math.random() * 2 > 1) {
+            self.plays.push(COOPERATE);
+        } else {
+            self.plays.push(DEFECT);
+        }
+    }
+
+    // Return the move of the strategy
+    this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
+        return self.plays[roundNumber];
     }
 }
 
@@ -572,59 +678,13 @@ function VoidStrategy() {
     }
 }
 
-export const environment = new IteratedPrisonersDilemmaEnvironment(100, 36);
-
-//let strategies = [DEFECTIVE_STRATEGY, COOPERATIVE_STRATEGY,  DONNANT_DONNANT_STRATEGY];
-let strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, COOPERATE_THEN_DEFECT_STRATEGY, DONNANT_DONNANT_STRATEGY, DOUBLE_DONNANT_STRATEGY];
-let spacing = 10;
-let baseDiameter = 2;
-
-let stratCounts = strategies.length;
-let replicaCounts = stratCounts * (stratCounts - 1);
-let alpha = 2 * Math.PI / replicaCounts;
-
-let arenaDiameter = spacing * replicaCounts / (2 * Math.PI);
-
-/*
-for (let i = 0; i < stratCounts; i++) {
-    for (let j = 0; j < stratCounts - 1; j++) {
-        let x = Math.ceil(Math.cos((i + j * (stratCounts)) * alpha) * arenaDiameter);
-        let y = Math.ceil(Math.sin((i + j * (stratCounts)) * alpha) * arenaDiameter);
-        
-        for (let dx = Math.floor(-baseDiameter/2) ; dx <= baseDiameter/2; dx ++) {
-            for (let dy = Math.floor(-baseDiameter/2) ; dy <= baseDiameter/2; dy ++) {
-                let dist = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
-                if(dist <= baseDiameter/2) {
-                    let cell = new Cell(x + dx, y + dy, strategies[(i + j) % strategies.length]);
-                    environment.spawn(cell);
-                }
-            }
-        }
-    }
-}
-*/
-
-for (let k = 0; k < replicaCounts; k++) {
-    let x = Math.ceil(Math.cos(k * alpha) * arenaDiameter);
-    let y = Math.ceil(Math.sin(k * alpha) * arenaDiameter);
-    
-    for (let dx = Math.floor(-baseDiameter/2) ; dx <= baseDiameter/2; dx ++) {
-        for (let dy = Math.floor(-baseDiameter/2) ; dy <= baseDiameter/2; dy ++) {
-            let dist = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
-            if(dist <= baseDiameter/2) {
-                let cell = new Cell(x + dx, y + dy, strategies[k % strategies.length]);
-                environment.spawn(cell);
-            }
-        }
-    }
-}
-/*
-let cellC = new Cell(-5, 5, DONNANT_DONNANT_STRATEGY);
-environment.spawn(cellC);
-
-let cellA = new Cell(0, 5, COOPERATIVE_STRATEGY);
-environment.spawn(cellA);
-
-let cellB = new Cell(5, 5, DEFECTIVE_STRATEGY);
-environment.spawn(cellB);
-*/
+//const strategies = [DEFECTIVE_STRATEGY, COOPERATIVE_STRATEGY];
+//const strategies = [DEFECTIVE_STRATEGY, COOPERATIVE_STRATEGY,  DONNANT_DONNANT_STRATEGY];
+//const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY];
+//const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CCD_STRATEGY];
+//const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_DDC_STRATEGY];
+//const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY];
+//const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, DONNANT_DONNANT_STRATEGY];
+//const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, BAD_DONNANT_STRATEGY];
+const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, PER_DDC_STRATEGY, DONNANT_DONNANT_STRATEGY];
+Helper.initArena();
