@@ -368,13 +368,14 @@ class IteratedPrisonersDilemmaEnvironment {
 
         let neighborByStratCounts = Array.from(neighborByStratCountMap.values());
 
+        // Die if a strategie cumul more point than our strategy.
         let badScoreVersusStrat = false;
         neighborByStratCountMap.forEach((neighborCount, strat, map) => {
-            if (sameStratCount <= neighborCount) {
+            //if (sameStratCount <= neighborCount) {
                 // if more foes than firends.
                 //return score.score < localTotalScore/(neighborhood.length + 1); // Die if score < mean.
-                badScoreVersusStrat = score.scoreByStrategyCount.get(cell.strategy.name) < score.scoreByStrategyCount.get(strat);
-            }
+                badScoreVersusStrat = badScoreVersusStrat || score.scoreByStrategyCount.get(cell.strategy.name) < score.scoreByStrategyCount.get(strat);
+            //}
         });
         if (badScoreVersusStrat) return true;
 
@@ -667,7 +668,7 @@ function RandomStrategy() {
 
     this.plays = [];
     for(let i = 0; i < environment.roundCount; i++) {
-        if (Math.random() * 2 > 1) {
+        if (Math.random() * 2 < 2) {
             self.plays.push(COOPERATE);
         } else {
             self.plays.push(DEFECT);
@@ -676,7 +677,9 @@ function RandomStrategy() {
 
     // Return the move of the strategy
     this.play = function(roundNumber, myPlays, otherPlays, roundCount) {
-        return self.plays[roundNumber];
+        //return self.plays[roundNumber];
+        if (Math.random() * 2 < 2) return COOPERATE;
+        return DEFECT;
     }
 }
 
@@ -700,6 +703,7 @@ function VoidStrategy() {
 //const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, DONNANT_DONNANT_STRATEGY];
 //const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, BAD_DONNANT_STRATEGY];
 //const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, PER_DDC_STRATEGY, DONNANT_DONNANT_STRATEGY];
-const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, PER_DDC_STRATEGY];
+const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CCD_STRATEGY, DOUBLE_DONNANT_STRATEGY, PER_DDC_STRATEGY, DONNANT_DONNANT_STRATEGY];
+//const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, PER_DDC_STRATEGY];
 //const strategies = [COOPERATIVE_STRATEGY, DEFECTIVE_STRATEGY, PER_CD_STRATEGY, PER_CCD_STRATEGY, PER_DDC_STRATEGY, DONNANT_DONNANT_STRATEGY, DEFECTIVE_STRATEGY];
 Helper.initArena();
