@@ -75,6 +75,7 @@ class IpdScore {
         this.cell = cell;
         this.fightCount = 0;
         this.winByStrategyCount = new Map(); // Map strategyName > int
+        this.scoreByStrategyCount = new Map(); // Map strategyName > int
         this.winCount = 0;
         this.score = 0;
     }
@@ -84,8 +85,11 @@ class IpdScore {
         if (score) this.score += score;
         if (score > versusScore) this.winCount ++;
 
-        let byStratCounter = (this.winByStrategyCount.get(versusCell.strategy) || 0);
-        this.winByStrategyCount.set(versusCell.strategy, byStratCounter ++);
+        let byStratCounter = (this.winByStrategyCount.get(versusCell.strategy.name) || 0);
+        this.winByStrategyCount.set(versusCell.strategy.name, byStratCounter + 1);
+
+        let byStratScore = (this.scoreByStrategyCount.get(versusCell.strategy.name) || 0);
+        this.scoreByStrategyCount.set(versusCell.strategy.name, byStratScore + versusScore);
     }
 
     isGreaterThan(otherScore) {
@@ -364,7 +368,16 @@ class IteratedPrisonersDilemmaEnvironment {
 
         let neighborByStratCounts = Array.from(neighborByStratCountMap.values());
 
-        
+        let badScoreVersusStrat = false;
+        neighborByStratCountMap.forEach((neighborCount, strat, map) => {
+            if (sameStratCount <= neighborCount) {
+                // if more foes than firends.
+                //return score.score < localTotalScore/(neighborhood.length + 1); // Die if score < mean.
+                badScoreVersusStrat = score.scoreByStrategyCount.get(cell.strategy.name) < score.scoreByStrategyCount.get(strat);
+            }
+        });
+        if (badScoreVersusStrat) return true;
+
         //console.debug('neighborByStratCounts:', neighborByStratCounts);
         for (let i = 0; i < neighborByStratCounts.length; i++) {
             if (sameStratCount < neighborByStratCounts[i]) {
@@ -375,7 +388,7 @@ class IteratedPrisonersDilemmaEnvironment {
         }
 
         //console.debug('score: ', score.score, '/', localTotalScore);
-        return score.score < localTotalScore/(neighborhood.length + 1) * 9/10; // Die if score < 2/3 of mean score.
+        return score.score < localTotalScore/(neighborhood.length + 1) * 8/10; // Die if score < 2/3 of mean score.
     }
 
     isGivingBirth(cell) {
